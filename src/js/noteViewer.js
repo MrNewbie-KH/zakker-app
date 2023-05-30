@@ -106,7 +106,7 @@ closeIcon.addEventListener("click", () => {
   popupBox.classList.remove("show");
   document.querySelector("body").style.overflow = "auto";
 });
-function showNotes() {
+function showNotesFromLocal(){
   if (!notes) return;
   document.querySelectorAll(".note").forEach((li) => li.remove());
   notes.forEach((note, id) => {
@@ -136,6 +136,60 @@ function showNotes() {
                       </li>`;
     addBox.insertAdjacentHTML("afterend", liTag);
   });
+}
+async function showNotesFromDataBase(){
+  let notesOnline=[]
+  const headers = { 'Authorization': 'Token cd35c838ea064d28f7c698af8f5acc341f8cde297dc3d05054999d67ab5d23ca' }; // auth header with bearer token
+
+  try {
+      const response = await fetch('http://127.0.0.1:8000/notes/',{headers});
+      const data = await response.json();
+      console.log(data); // Print the fetched data correctly
+      notesOnline=data
+    } catch (error) {
+      console.error('Error:', error);
+      return
+    }
+  document.querySelectorAll(".note").forEach((li) => li.remove());
+  notesOnline.forEach((note, id) => {
+    let filterDesc = note.body.replaceAll("\n", "<br/>");
+    let liTag = `<li class="note" style="background:${
+      colorArray[note.color]
+    } !important">
+                          <div class="details">
+                              <p>${note.title}</p>
+                              <span>${filterDesc}</span>
+                              <span>${note.category}</span>
+                              <span>${note.page}</span>
+                              <span>${note.source}</span>
+                          </div>
+                          <div class="bottom-content">
+                              <span>${note.date}</span>
+                              <div class="settings">
+                                  <i onclick="showMenu(this)" class="uil uil-ellipsis-h"></i>
+                                  <ul class="menu">
+                                      <li onclick="updateNote(${id}, '${
+      note.title
+    }', '${filterDesc}')"><i class="uil uil-pen"></i>Edit</li>
+                                      <li onclick="deleteNote(${id})"><i class="uil uil-trash"></i>Delete</li>
+                                  </ul>
+                              </div>
+                          </div>
+                      </li>`;
+    addBox.insertAdjacentHTML("afterend", liTag);
+  });
+}
+function showNotes() {
+ 
+  if(navigator.onLine)
+  {
+    showNotesFromDataBase()
+
+  }
+  else{
+    showNotesFromLocal() 
+  }
+  
 }
 showNotes();
 
@@ -172,40 +226,85 @@ window.addEventListener("click", (e) => {
     c = e.target.getAttribute("data-value");
   }
 });
+async function addNotesToDataBase(){
+  let currentDate = new Date()
+  let title = titleTag.value.trim()
+  let body = bodyTag.value.trim()
+  let page = pageTag.value.trim()
+  let category = catTag.value.trim()
+  let source = sourceTag.value.trim();
+  let month = String(currentDate.getMonth()+1)
+  month = month.padStart(2, '0'); // Add leading zero if necessary
+  let day = String(currentDate.getDate())  
+  day = day.padStart(2, '0'); // Add leading zero if necessary
+  let year = currentDate.getFullYear();
+  todayData=String(`${year}-${month}-${day}`)
+  await fetch("http://127.0.0.1:8000/notes/", {
+    method: "POST",
+    body: JSON.stringify({
+      title: title,
+      body:body,
+      color:c,
+      date: todayData,
+      category:category,
+      page:page,
+      source:source
+
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+      "Authorization": "Token cd35c838ea064d28f7c698af8f5acc341f8cde297dc3d05054999d67ab5d23ca"
+    }
+  });
+  showNotes();
+  closeIcon.click();
+}
+function addNotesToLocal(){
+  let title = titleTag.value.trim(),
+  body = bodyTag.value.trim(),
+  category = catTag.value.trim(),
+  page = pageTag.value.trim(),
+  color = c,
+  source = sourceTag.value.trim();
+if (title || body) {
+  let currentDate = new Date(),
+    month = months[currentDate.getMonth()],
+    day = currentDate.getDate(),
+    year = currentDate.getFullYear();
+
+  // let noteInfo = { title, body, date: `${month} ${day}, ${year}` };
+  let noteInfo = new Note(
+    title,
+    body,
+    category,
+    page,
+    source,
+    color,
+    `${month} ${day}, ${year}`
+  );
+
+  if (!isUpdate) {
+    notes.push(noteInfo);
+    c = 0;
+  } else {
+    isUpdate = false;
+    notes[updateId] = noteInfo;
+  }
+  localStorage.setItem("notes", JSON.stringify(notes));
+  showNotes();
+  closeIcon.click();
+}
+}
 addBtn.addEventListener("click", (e) => {
   e.preventDefault();
-  let title = titleTag.value.trim(),
-    body = bodyTag.value.trim(),
-    category = catTag.value.trim(),
-    page = pageTag.value.trim(),
-    color = c,
-    source = sourceTag.value.trim();
-  if (title || body) {
-    let currentDate = new Date(),
-      month = months[currentDate.getMonth()],
-      day = currentDate.getDate(),
-      year = currentDate.getFullYear();
+    console.log("la3k yousif")
+  if(navigator.onLine)
+  {
+    addNotesToDataBase()
 
-    // let noteInfo = { title, body, date: `${month} ${day}, ${year}` };
-    let noteInfo = new Note(
-      title,
-      body,
-      category,
-      page,
-      source,
-      color,
-      `${month} ${day}, ${year}`
-    );
-
-    if (!isUpdate) {
-      notes.push(noteInfo);
-      c = 0;
-    } else {
-      isUpdate = false;
-      notes[updateId] = noteInfo;
-    }
-    localStorage.setItem("notes", JSON.stringify(notes));
-    showNotes();
-    closeIcon.click();
   }
+  else{
+    addNotesToLocal() 
+  }
+
 });
